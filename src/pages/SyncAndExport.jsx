@@ -25,6 +25,8 @@ import {
   ExternalLink,
   AlertTriangle,
   Activity,
+  Pause,
+  Play,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -135,9 +137,10 @@ function SyncData({
   setSyncState,
 }) {
   const APP_API = import.meta.env.VITE_API_URL;
+  const [isPaused, setIsPaused] = useState(false);
 
   const calculateEstimateTime = (user) => {
-    const seconds = user * 10;
+    const seconds = user * 3;
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
@@ -155,7 +158,6 @@ function SyncData({
 
   const getAllUsers = async () => {
     try {
-      console.log(`${APP_API}/tiktok/list-all-users`);
       const response = await axios.get(`${APP_API}/tiktok/list-all-users`);
       setTotalUser(response.data.length);
       setUsers(response.data);
@@ -167,56 +169,94 @@ function SyncData({
     }
   };
 
-  const getUserInfo = async (username) => {
+  const getUserInfo = async (userBatch) => {
     try {
-      setCurrentUser(username);
-      const response = await axios.post(`/tiktok/get-user-info`, {
-        username: username,
-      });
-
-      //Update user data to main server.
-      const response2 = await axios.post(`${APP_API}/tiktok/update-user-data`, {
-        userData: response.data,
-      });
-
-      setUsers((state) => {
-        return state.map((user) => {
-          if (user.username === username) {
-            return response2.data;
-          }
-          return user;
+      const promises = userBatch.map(async (username) => {
+        setCurrentUser(username);
+        const response = await axios.post(`/tiktok/get-user-info`, {
+          username: username,
         });
+
+        const response2 = await axios.post(
+          `${APP_API}/tiktok/update-user-data`,
+          {
+            userData: response.data,
+          }
+        );
+
+        setUsers((state) => {
+          return state.map((user) => {
+            if (user.username === username) {
+              return response2.data;
+            }
+            return user;
+          });
+        });
+        return true;
       });
-      return true;
+
+      const results = await Promise.allSettled(promises);
+      return results.reduce(
+        (acc, result) => {
+          if (result.status === "fulfilled" && result.value) acc.success++;
+          else acc.error++;
+          return acc;
+        },
+        { success: 0, error: 0 }
+      );
     } catch (error) {
-      console.error(`Error fetching info for user ${username}:`, error);
-      return false;
+      console.error(`Error in batch processing:`, error);
+      return { success: 0, error: userBatch.length };
     }
   };
 
   const getAllUsersInfo = async () => {
     setIsSyncing(true);
-    setProgress(0);
 
-    const totalUsers = users.length;
-    let successCount = 0;
-    let errorCount = 0;
+    const batchSize = 10;
+    const usernames = users.map((user) => user.username);
+    const batches = [];
 
-    for (let i = 0; i < totalUsers; i++) {
-      try {
-        const success = await getUserInfo(users[i].username);
-        if (success) {
-          successCount++;
-        } else {
-          errorCount++;
-        }
-      } catch (error) {
-        console.error(`Error processing user ${users[i].username}:`, error);
-        errorCount++;
-      } finally {
-        setProgress(Math.round(((i + 1) / totalUsers) * 100));
-      }
+    // Get last processed index from localStorage
+    const lastProcessedIndex =
+      parseInt(localStorage.getItem("lastProcessedIndex")) || 0;
+    const lastSuccessCount =
+      parseInt(localStorage.getItem("successCount")) || 0;
+    const lastErrorCount = parseInt(localStorage.getItem("errorCount")) || 0;
+
+    for (let i = 0; i < usernames.length; i += batchSize) {
+      batches.push(usernames.slice(i, i + batchSize));
     }
+
+    let successCount = lastSuccessCount;
+    let errorCount = lastErrorCount;
+
+    setProgress(Math.round((lastProcessedIndex / batches.length) * 100));
+
+    for (let i = lastProcessedIndex; i < batches.length; i++) {
+      if (isPaused) {
+        // Save progress to localStorage
+        localStorage.setItem("lastProcessedIndex", i.toString());
+        localStorage.setItem("successCount", successCount.toString());
+        localStorage.setItem("errorCount", errorCount.toString());
+        return;
+      }
+
+      const result = await getUserInfo(batches[i]);
+      successCount += result.success;
+      errorCount += result.error;
+      setProgress(Math.round(((i + 1) / batches.length) * 100));
+
+      // Update progress in localStorage
+      localStorage.setItem("lastProcessedIndex", (i + 1).toString());
+      localStorage.setItem("successCount", successCount.toString());
+      localStorage.setItem("errorCount", errorCount.toString());
+    }
+
+    // Clear localStorage when complete
+    localStorage.removeItem("lastProcessedIndex");
+    localStorage.removeItem("successCount");
+    localStorage.removeItem("errorCount");
 
     setSyncState({
       success: successCount,
@@ -233,7 +273,7 @@ function SyncData({
 
   const handleSync = async () => {
     try {
-      setIsSyncing(true);
+      setIsPaused(false);
       setFinished(false);
       setSummary("");
       setProgress(0);
@@ -244,6 +284,13 @@ function SyncData({
       setSummary("Sync failed due to an error");
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handlePauseResume = () => {
+    setIsPaused(!isPaused);
+    if (isPaused) {
+      getAllUsersInfo(); // Resume from where we left off
     }
   };
 
@@ -288,28 +335,6 @@ function SyncData({
             </div>
           </CardContent>
         </Card>
-
-        {/* <Card className="border-l-4 border-l-green-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Activity className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Status
-                </p>
-                <Badge
-                  variant={
-                    isSyncing ? "default" : finished ? "secondary" : "outline"
-                  }
-                >
-                  {isSyncing ? "Syncing" : finished ? "Completed" : "Ready"}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card> */}
       </div>
 
       {/* Main Sync Card */}
@@ -330,8 +355,7 @@ function SyncData({
             <AlertDescription className="text-amber-800">
               <strong>Important:</strong> Syncing will take considerable time
               and the website will be unavailable during this process. Each user
-              takes approximately 10-20 seconds depending on your internet
-              speed.
+              takes approximately 3-5 seconds depending on your internet speed.
             </AlertDescription>
           </Alert>
 
@@ -342,7 +366,7 @@ function SyncData({
                 <h4 className="font-medium">Sync Progress</h4>
                 <Badge variant="default" className="gap-1">
                   <Activity className="h-3 w-3" />
-                  In Progress
+                  {isPaused ? "Paused" : "In Progress"}
                 </Badge>
               </div>
 
@@ -404,24 +428,47 @@ function SyncData({
             </div>
           )}
 
-          {/* Action Button */}
-          <Button
-            onClick={handleSync}
-            disabled={isSyncing}
-            size="lg"
-            className="w-full gap-2"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`}
-            />
-            {isSyncing ? "Syncing in Progress..." : "Start Sync"}
-          </Button>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button
+              onClick={handleSync}
+              disabled={isSyncing}
+              size="lg"
+              className="flex-1 gap-2"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${
+                  isSyncing && !isPaused ? "animate-spin" : ""
+                }`}
+              />
+              {isSyncing ? "Syncing in Progress..." : "Start Sync"}
+            </Button>
+            {isSyncing && (
+              <Button
+                onClick={handlePauseResume}
+                size="lg"
+                variant="outline"
+                className="gap-2"
+              >
+                {isPaused ? (
+                  <>
+                    <Play className="h-4 w-4" />
+                    Resume
+                  </>
+                ) : (
+                  <>
+                    <Pause className="h-4 w-4" />
+                    Pause
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-
 function ExportData() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportComplete, setExportComplete] = useState(false);
