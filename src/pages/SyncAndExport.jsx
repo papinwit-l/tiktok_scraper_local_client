@@ -138,9 +138,13 @@ function SyncData({
 }) {
   const APP_API = import.meta.env.VITE_API_URL;
   const [isPaused, setIsPaused] = useState(false);
+  const [syncStartTime, setSyncStartTime] = useState(null);
+  const [realTimeETA, setRealTimeETA] = useState("");
+  const [avgTimePerUser, setAvgTimePerUser] = useState(10); // Default 10 seconds
+  const [processedCount, setProcessedCount] = useState(0);
 
-  const calculateEstimateTime = (user) => {
-    const seconds = user * 3;
+  const calculateEstimateTime = (user, timePerUser = 10) => {
+    const seconds = user * timePerUser;
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
@@ -155,6 +159,48 @@ function SyncData({
       return `${seconds} seconds`;
     }
   };
+
+  const formatTimeRemaining = (seconds) => {
+    if (seconds <= 0) return "Almost done";
+
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  };
+
+  const updateRealTimeETA = () => {
+    if (!isSyncing || !syncStartTime || processedCount === 0) return;
+
+    const currentTime = Date.now();
+    const elapsedTime = (currentTime - syncStartTime) / 1000; // in seconds
+    const currentAvgTime = elapsedTime / processedCount;
+
+    setAvgTimePerUser(currentAvgTime);
+
+    const remainingUsers = totalUser - processedCount;
+    const estimatedSecondsRemaining = remainingUsers * currentAvgTime;
+
+    setRealTimeETA(formatTimeRemaining(estimatedSecondsRemaining));
+  };
+
+  // Update ETA every second during sync
+  useEffect(() => {
+    let interval;
+    if (isSyncing && !isPaused && syncStartTime) {
+      interval = setInterval(updateRealTimeETA, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isSyncing, isPaused, syncStartTime, processedCount, totalUser]);
 
   const getAllUsers = async () => {
     try {
@@ -196,7 +242,7 @@ function SyncData({
       });
 
       const results = await Promise.allSettled(promises);
-      return results.reduce(
+      const batchResult = results.reduce(
         (acc, result) => {
           if (result.status === "fulfilled" && result.value) acc.success++;
           else acc.error++;
@@ -204,8 +250,14 @@ function SyncData({
         },
         { success: 0, error: 0 }
       );
+
+      // Update processed count for real-time ETA calculation
+      setProcessedCount((prev) => prev + userBatch.length);
+
+      return batchResult;
     } catch (error) {
       console.error(`Error in batch processing:`, error);
+      setProcessedCount((prev) => prev + userBatch.length);
       return { success: 0, error: userBatch.length };
     }
   };
@@ -213,32 +265,43 @@ function SyncData({
   const getAllUsersInfo = async () => {
     setIsSyncing(true);
 
-    const batchSize = 10;
+    const batchSize = 5;
     const usernames = users.map((user) => user.username);
     const batches = [];
-
-    // Get last processed index from localStorage
-    const lastProcessedIndex =
-      parseInt(localStorage.getItem("lastProcessedIndex")) || 0;
-    const lastSuccessCount =
-      parseInt(localStorage.getItem("successCount")) || 0;
-    const lastErrorCount = parseInt(localStorage.getItem("errorCount")) || 0;
 
     for (let i = 0; i < usernames.length; i += batchSize) {
       batches.push(usernames.slice(i, i + batchSize));
     }
 
+    // Get last processed index and counts from localStorage
+    const lastProcessedIndex =
+      parseInt(localStorage.getItem("lastProcessedIndex")) || 0;
+    const lastSuccessCount =
+      parseInt(localStorage.getItem("successCount")) || 0;
+    const lastErrorCount = parseInt(localStorage.getItem("errorCount")) || 0;
+    const storedProcessedCount =
+      parseInt(localStorage.getItem("processedCount")) || 0;
+
     let successCount = lastSuccessCount;
     let errorCount = lastErrorCount;
 
+    // Set initial processed count for resuming
+    setProcessedCount(storedProcessedCount);
+
+    // Set initial progress based on lastProcessedIndex
     setProgress(Math.round((lastProcessedIndex / batches.length) * 100));
+
+    // Set sync start time (or resume time)
+    if (!syncStartTime || lastProcessedIndex === 0) {
+      setSyncStartTime(Date.now());
+    }
 
     for (let i = lastProcessedIndex; i < batches.length; i++) {
       if (isPaused) {
-        // Save progress to localStorage
         localStorage.setItem("lastProcessedIndex", i.toString());
         localStorage.setItem("successCount", successCount.toString());
         localStorage.setItem("errorCount", errorCount.toString());
+        localStorage.setItem("processedCount", processedCount.toString());
         return;
       }
 
@@ -247,16 +310,16 @@ function SyncData({
       errorCount += result.error;
       setProgress(Math.round(((i + 1) / batches.length) * 100));
 
-      // Update progress in localStorage
       localStorage.setItem("lastProcessedIndex", (i + 1).toString());
       localStorage.setItem("successCount", successCount.toString());
       localStorage.setItem("errorCount", errorCount.toString());
+      localStorage.setItem("processedCount", processedCount.toString());
     }
 
-    // Clear localStorage when complete
     localStorage.removeItem("lastProcessedIndex");
     localStorage.removeItem("successCount");
     localStorage.removeItem("errorCount");
+    localStorage.removeItem("processedCount");
 
     setSyncState({
       success: successCount,
@@ -269,14 +332,44 @@ function SyncData({
     );
     setIsSyncing(false);
     setFinished(true);
+    setRealTimeETA("");
+    setSyncStartTime(null);
+    setProcessedCount(0);
   };
 
   const handleSync = async () => {
     try {
+      const lastProcessedIndex = parseInt(
+        localStorage.getItem("lastProcessedIndex")
+      );
+
+      if (lastProcessedIndex) {
+        // If there's a stored index, ask user if they want to resume
+        if (
+          window.confirm(
+            "Previous sync was interrupted. Would you like to resume from where it left off?"
+          )
+        ) {
+          setIsPaused(false);
+          await getAllUsersInfo();
+          return;
+        } else {
+          // Clear localStorage if user doesn't want to resume
+          localStorage.removeItem("lastProcessedIndex");
+          localStorage.removeItem("successCount");
+          localStorage.removeItem("errorCount");
+          localStorage.removeItem("processedCount");
+        }
+      }
+
+      // Start new sync
       setIsPaused(false);
       setFinished(false);
       setSummary("");
       setProgress(0);
+      setProcessedCount(0);
+      setRealTimeETA("");
+      setSyncStartTime(null);
       await getAllUsers();
       await getAllUsersInfo();
     } catch (error) {
@@ -284,13 +377,16 @@ function SyncData({
       setSummary("Sync failed due to an error");
     } finally {
       setIsSyncing(false);
+      setRealTimeETA("");
+      setSyncStartTime(null);
+      setProcessedCount(0);
     }
   };
 
   const handlePauseResume = () => {
     setIsPaused(!isPaused);
     if (isPaused) {
-      getAllUsersInfo(); // Resume from where we left off
+      getAllUsersInfo();
     }
   };
 
@@ -301,7 +397,7 @@ function SyncData({
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -328,13 +424,35 @@ function SyncData({
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
-                  Estimated Time
+                  {isSyncing ? "Time Remaining" : "Estimated Time"}
                 </p>
-                <p className="text-2xl font-bold">{estimateTime}</p>
+                <p className="text-2xl font-bold">
+                  {isSyncing && realTimeETA ? realTimeETA : estimateTime}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {isSyncing && (
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Activity className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Avg Time/User
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {avgTimePerUser.toFixed(1)}s
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Main Sync Card */}
@@ -378,7 +496,7 @@ function SyncData({
                 <Progress value={progress} className="h-3" />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                   <span className="text-muted-foreground">Current User:</span>
@@ -388,9 +506,18 @@ function SyncData({
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span className="text-muted-foreground">Processed:</span>
                   <span className="font-medium">
-                    {Math.round((progress / 100) * totalUser)} / {totalUser}
+                    {processedCount} / {totalUser}
                   </span>
                 </div>
+                {realTimeETA && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                    <span className="text-muted-foreground">ETA:</span>
+                    <span className="font-medium text-orange-600">
+                      {realTimeETA}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -469,6 +596,7 @@ function SyncData({
     </div>
   );
 }
+
 function ExportData() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportComplete, setExportComplete] = useState(false);
