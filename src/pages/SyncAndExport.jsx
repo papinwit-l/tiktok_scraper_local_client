@@ -28,7 +28,7 @@ import {
   Pause,
   Play,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 function SyncAndExport() {
@@ -138,6 +138,7 @@ function SyncData({
 }) {
   const APP_API = import.meta.env.VITE_API_URL;
   const [isPaused, setIsPaused] = useState(false);
+  const isPausedRef = useRef(false); // Add ref to track pause state
   const [syncStartTime, setSyncStartTime] = useState(null);
   const [realTimeETA, setRealTimeETA] = useState("");
   const [avgTimePerUser, setAvgTimePerUser] = useState(10); // Default 10 seconds
@@ -202,6 +203,11 @@ function SyncData({
     };
   }, [isSyncing, isPaused, syncStartTime, processedCount, totalUser]);
 
+  // Sync isPaused state with ref
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
   const getAllUsers = async () => {
     try {
       const response = await axios.get(`${APP_API}/tiktok/list-all-users`);
@@ -215,13 +221,26 @@ function SyncData({
     }
   };
 
-  const getUserInfo = async (userBatch) => {
+  const getUserInfo = async (userBatch, shouldCheckPause = false) => {
     try {
       const promises = userBatch.map(async (username) => {
+        // Check for pause before processing each user using ref
+        if (shouldCheckPause && isPausedRef.current) {
+          window.location.reload();
+          // throw new Error("PAUSED");
+          //refresh the page
+        }
+
         setCurrentUser(username);
         const response = await axios.post(`/tiktok/get-user-info`, {
           username: username,
         });
+
+        // Check for pause again after the first API call using ref
+        if (shouldCheckPause && isPausedRef.current) {
+          window.location.reload();
+          // throw new Error("PAUSED");
+        }
 
         const response2 = await axios.post(
           `${APP_API}/tiktok/update-user-data`,
@@ -242,6 +261,18 @@ function SyncData({
       });
 
       const results = await Promise.allSettled(promises);
+
+      // Check if any promise was rejected due to pause
+      const pausedResults = results.filter(
+        (result) =>
+          result.status === "rejected" && result.reason?.message === "PAUSED"
+      );
+
+      if (pausedResults.length > 0) {
+        // If paused during processing, throw to stop the batch
+        throw new Error("BATCH_PAUSED");
+      }
+
       const batchResult = results.reduce(
         (acc, result) => {
           if (result.status === "fulfilled" && result.value) acc.success++;
@@ -256,6 +287,10 @@ function SyncData({
 
       return batchResult;
     } catch (error) {
+      if (error.message === "BATCH_PAUSED") {
+        // Re-throw pause error to be handled by the main loop
+        throw error;
+      }
       console.error(`Error in batch processing:`, error);
       setProcessedCount((prev) => prev + userBatch.length);
       return { success: 0, error: userBatch.length };
@@ -281,6 +316,7 @@ function SyncData({
     const lastErrorCount = parseInt(localStorage.getItem("errorCount")) || 0;
     const storedProcessedCount =
       parseInt(localStorage.getItem("processedCount")) || 0;
+    const storedSyncStartTime = localStorage.getItem("syncStartTime");
 
     let successCount = lastSuccessCount;
     let errorCount = lastErrorCount;
@@ -291,35 +327,77 @@ function SyncData({
     // Set initial progress based on lastProcessedIndex
     setProgress(Math.round((lastProcessedIndex / batches.length) * 100));
 
-    // Set sync start time (or resume time)
-    if (!syncStartTime || lastProcessedIndex === 0) {
-      setSyncStartTime(Date.now());
+    // Set sync start time (use stored time when resuming, or current time for new sync)
+    let startTime;
+    if (storedSyncStartTime && lastProcessedIndex > 0) {
+      // Resuming - use stored start time
+      startTime = parseInt(storedSyncStartTime);
+    } else {
+      // New sync - use current time
+      startTime = Date.now();
+      localStorage.setItem("syncStartTime", startTime.toString());
     }
+    setSyncStartTime(startTime);
 
     for (let i = lastProcessedIndex; i < batches.length; i++) {
-      if (isPaused) {
+      if (isPausedRef.current) {
+        // Calculate the actual processed count based on current batch index
+        const currentProcessedCount = i * batchSize;
+
         localStorage.setItem("lastProcessedIndex", i.toString());
         localStorage.setItem("successCount", successCount.toString());
         localStorage.setItem("errorCount", errorCount.toString());
-        localStorage.setItem("processedCount", processedCount.toString());
+        localStorage.setItem(
+          "processedCount",
+          currentProcessedCount.toString()
+        );
+        localStorage.setItem("syncStartTime", startTime.toString());
         return;
       }
 
-      const result = await getUserInfo(batches[i]);
-      successCount += result.success;
-      errorCount += result.error;
-      setProgress(Math.round(((i + 1) / batches.length) * 100));
+      try {
+        const result = await getUserInfo(batches[i], true); // Pass true to enable pause checking
+        successCount += result.success;
+        errorCount += result.error;
+        setProgress(Math.round(((i + 1) / batches.length) * 100));
 
-      localStorage.setItem("lastProcessedIndex", (i + 1).toString());
-      localStorage.setItem("successCount", successCount.toString());
-      localStorage.setItem("errorCount", errorCount.toString());
-      localStorage.setItem("processedCount", processedCount.toString());
+        // Calculate the actual processed count based on completed batches
+        const currentProcessedCount = (i + 1) * batchSize;
+
+        localStorage.setItem("lastProcessedIndex", (i + 1).toString());
+        localStorage.setItem("successCount", successCount.toString());
+        localStorage.setItem("errorCount", errorCount.toString());
+        localStorage.setItem(
+          "processedCount",
+          currentProcessedCount.toString()
+        );
+        localStorage.setItem("syncStartTime", startTime.toString());
+      } catch (error) {
+        if (error.message === "BATCH_PAUSED") {
+          // Batch was paused mid-processing, save current state
+          const currentProcessedCount = i * batchSize;
+
+          localStorage.setItem("lastProcessedIndex", i.toString());
+          localStorage.setItem("successCount", successCount.toString());
+          localStorage.setItem("errorCount", errorCount.toString());
+          localStorage.setItem(
+            "processedCount",
+            currentProcessedCount.toString()
+          );
+          localStorage.setItem("syncStartTime", startTime.toString());
+          return;
+        }
+        // Handle other errors normally
+        throw error;
+      }
     }
 
+    // Clean up localStorage when sync is complete
     localStorage.removeItem("lastProcessedIndex");
     localStorage.removeItem("successCount");
     localStorage.removeItem("errorCount");
     localStorage.removeItem("processedCount");
+    localStorage.removeItem("syncStartTime");
 
     setSyncState({
       success: successCount,
@@ -359,6 +437,7 @@ function SyncData({
           localStorage.removeItem("successCount");
           localStorage.removeItem("errorCount");
           localStorage.removeItem("processedCount");
+          localStorage.removeItem("syncStartTime");
         }
       }
 
@@ -384,8 +463,12 @@ function SyncData({
   };
 
   const handlePauseResume = () => {
-    setIsPaused(!isPaused);
-    if (isPaused) {
+    const newPauseState = !isPaused;
+    setIsPaused(newPauseState);
+    isPausedRef.current = newPauseState; // Update ref immediately
+
+    if (!newPauseState) {
+      // If resuming, restart the sync process
       getAllUsersInfo();
     }
   };
