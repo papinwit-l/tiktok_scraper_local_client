@@ -517,7 +517,24 @@ function SyncData({
           </CardContent>
         </Card>
 
-        {isSyncing && (
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Activity className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Avg Time/User
+                </p>
+                <p className="text-2xl font-bold">
+                  {avgTimePerUser.toFixed(1)}s
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        {/* {isSyncing && (
           <Card className="border-l-4 border-l-green-500">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -535,7 +552,7 @@ function SyncData({
               </div>
             </CardContent>
           </Card>
-        )}
+        )} */}
       </div>
 
       {/* Main Sync Card */}
