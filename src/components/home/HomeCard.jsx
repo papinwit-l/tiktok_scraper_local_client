@@ -17,7 +17,10 @@ function HomeCard({ cardIcon, title, description, buttonText, navigateLink }) {
         <h2 className="mb-2 text-xl font-bold">{title}</h2>
         <p className="mb-6 text-slate-600 dark:text-slate-400">{description}</p>
       </div>
-      <Button className="w-full" onClick={handleNavigate}>
+      <Button
+        className="w-full bg-teal-500 hover:bg-teal-600"
+        onClick={handleNavigate}
+      >
         {buttonText}
         {/* <ArrowRight className="ml-2 h-4 w-4" /> */}
       </Button>

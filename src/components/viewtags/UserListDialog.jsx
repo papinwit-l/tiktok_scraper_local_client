@@ -20,6 +20,8 @@ import {
   ExternalLink,
   Loader2,
   Tag,
+  SortAsc,
+  SortDesc,
 } from "lucide-react";
 import {
   Select,
@@ -45,7 +47,7 @@ function UserListDialog(props) {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [viewMode, setViewMode] = useState("list"); // "list" or "card"
+  const [viewMode, setViewMode] = useState("card"); // "list" or "card"
   const [sortField, setSortField] = useState("username");
   const [sortDirection, setSortDirection] = useState("asc");
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,6 +59,17 @@ function UserListDialog(props) {
     setFilteredUsers([]);
   };
 
+  const formatUsername = (username) => {
+    // console.log(username);
+    // console.log(username.length);
+    if (username.length > 15) {
+      // console.log(username);
+
+      // console.log("display_username: " + username.substring(0, 15) + "...");
+      return username.substring(0, 15) + "...";
+    }
+    return username;
+  };
   const getUserList = async () => {
     try {
       const response = await axios.post(
@@ -65,7 +78,16 @@ function UserListDialog(props) {
           tags: tags,
         }
       );
-      setUsers(response.data);
+      setUsers(
+        response.data.map((item) => {
+          const result = {
+            ...item,
+            display_username: formatUsername(item.username),
+          };
+          // console.log(result);
+          return result;
+        })
+      );
     } catch (error) {
       console.error("Error fetching user list:", error);
     }
@@ -220,9 +242,19 @@ function UserListDialog(props) {
 
   const getSortIcon = () => {
     if (sortDirection === "asc") {
-      return <ArrowUp className="h-4 w-4" />;
+      return <SortAsc className="h-4 w-4" />;
     } else {
-      return <ArrowDown className="h-4 w-4" />;
+      return <SortDesc className="h-4 w-4" />;
+    }
+  };
+
+  const handleSortType = (type) => {
+    if (type === "username") {
+      setSortField("username");
+      setSortDirection("asc");
+    } else {
+      setSortField(type);
+      setSortDirection("desc");
     }
   };
 
@@ -251,57 +283,48 @@ function UserListDialog(props) {
           </DialogDescription>
 
           {/* Controls */}
-          <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md border p-1">
               <Button
-                onClick={getAllUsersInfo}
-                disabled={loading}
-                className="bg-teal-500 text-white hover:bg-teal-600"
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("list")}
+                className={
+                  viewMode === "list"
+                    ? "bg-teal-500 text-white hover:bg-teal-600"
+                    : ""
+                }
               >
-                <RefreshCcw
-                  className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                />
-                {loading ? "Updating..." : "Update All Users"}
+                <List className="h-4 w-4" />
               </Button>
-
-              <div className="flex items-center gap-1 rounded-md border p-1">
-                <Button
-                  variant={viewMode === "list" ? "default" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("list")}
-                  className={
-                    viewMode === "list"
-                      ? "bg-teal-500 text-white hover:bg-teal-600"
-                      : ""
-                  }
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "card" ? "default" : "ghost"}
-                  size="icon"
-                  onClick={() => setViewMode("card")}
-                  className={
-                    viewMode === "card"
-                      ? "bg-teal-500 text-white hover:bg-teal-600"
-                      : ""
-                  }
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant={viewMode === "card" ? "default" : "ghost"}
+                size="icon"
+                onClick={() => setViewMode("card")}
+                className={
+                  viewMode === "card"
+                    ? "bg-teal-500 text-white hover:bg-teal-600"
+                    : ""
+                }
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
             </div>
 
+            <Input
+              placeholder="Search users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1"
+            />
             <div className="flex items-center gap-2">
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1"
-              />
-
-              <Select value={sortField} onValueChange={setSortField}>
-                <SelectTrigger className="w-[180px]">
+              <span className="text-sm text-gray-600">Sort by:</span>
+              <Select
+                value={sortField}
+                onValueChange={handleSortType}
+                className="w-[180px]"
+              >
+                <SelectTrigger className="w-[120px]">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -317,6 +340,16 @@ function UserListDialog(props) {
                 onClick={toggleSortDirection}
               >
                 {getSortIcon()}
+              </Button>
+              <Button
+                onClick={getAllUsersInfo}
+                disabled={loading}
+                className="bg-teal-500 text-white hover:bg-teal-600"
+              >
+                <RefreshCcw
+                  className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
+                {loading ? "Refresing..." : "Refresh All Users"}
               </Button>
             </div>
           </div>
@@ -339,7 +372,9 @@ function UserListDialog(props) {
         >
           {filteredUsers.length > 0 ? (
             viewMode === "list" ? (
-              /* List View */
+              /* ----- List View ---------*/
+              /* ----- List View ---------*/
+              /* ----- List View ---------*/
               <div className="space-y-2">
                 {filteredUsers.map((user, index) => (
                   <div
@@ -415,13 +450,19 @@ function UserListDialog(props) {
                 ))}
               </div>
             ) : (
-              /* Card View */
+              /* ---------- Card View ---------- */
+              /* ---------- Card View ---------- */
+              /* ---------- Card View ---------- */
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredUsers.map((user, index) => (
-                  <Card key={user.id || index} className="overflow-hidden">
+                  <Card
+                    key={user.id || index}
+                    className="overflow-hidden pb-0 pt-4"
+                  >
                     <CardContent className="p-0">
                       <div className="flex flex-col">
-                        <div className="bg-gradient-to-r from-teal-500 to-emerald-500 p-4">
+                        {/* <div className="bg-gradient-to-r from-teal-500 to-emerald-500 p-4"> */}
+                        <div className="bg-slate-100 p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white">
@@ -436,12 +477,12 @@ function UserListDialog(props) {
                                 )}
                               </div>
                               <div>
-                                <h3 className="font-medium text-white">
-                                  {user.username}
-                                </h3>
-                                <span className="text-xs text-teal-100">
+                                <span className="text-xs text-gray-600">
                                   #{index + 1}
                                 </span>
+                                <h3 className="font-medium text-wrap break-words">
+                                  {user.display_username}
+                                </h3>
                               </div>
                             </div>
                             <Button
@@ -449,7 +490,7 @@ function UserListDialog(props) {
                               variant="ghost"
                               onClick={() => getUserInfo(user.username)}
                               disabled={loading}
-                              className="h-8 w-8 rounded-full bg-white/20 text-white hover:bg-white/30"
+                              className="h-8 w-8 rounded-full bg-teal-500 text-white hover:bg-teal-600 hover:text-white"
                             >
                               <RefreshCcw
                                 className={`h-4 w-4 ${
