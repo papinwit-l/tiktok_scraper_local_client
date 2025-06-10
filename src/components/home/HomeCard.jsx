@@ -1,6 +1,5 @@
 import React from "react";
 import { Button } from "../ui/button";
-import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 function HomeCard({ cardIcon, title, description, buttonText, navigateLink }) {
