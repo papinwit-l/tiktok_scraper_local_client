@@ -20,7 +20,7 @@ function HomeCard({ cardIcon, title, description, buttonText, navigateLink }) {
       </div>
       <Button className="w-full" onClick={handleNavigate}>
         {buttonText}
-        <ArrowRight className="ml-2 h-4 w-4" />
+        {/* <ArrowRight className="ml-2 h-4 w-4" /> */}
       </Button>
       <div className="absolute bottom-0 left-0 h-1 w-0 bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-300 group-hover:w-full"></div>
     </div>
