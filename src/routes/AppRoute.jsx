@@ -7,6 +7,7 @@ import ViewTags from "@/pages/ViewTags";
 import ViewAllUser from "@/pages/ViewAllUser";
 import DataSync from "@/pages/DataSync";
 import SyncAndExport from "@/pages/SyncAndExport";
+import TestComponent from "@/pages/TestComponent";
 
 const router = createBrowserRouter([
   {
@@ -27,7 +28,8 @@ const router = createBrowserRouter([
       },
       {
         path: "/view-all-users",
-        element: <ViewAllUser />,
+        // element: <ViewAllUser />,
+        element: <TestComponent />,
       },
       {
         path: "/sync-and-export",
