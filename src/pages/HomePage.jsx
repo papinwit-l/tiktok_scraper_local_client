@@ -1,11 +1,8 @@
-import { Button } from "@/components/ui/button";
+import HomeCard from "@/components/home/HomeCard";
 import { ArrowRight, RefreshCw, Search, Tag, Users } from "lucide-react";
 import React from "react";
-import { useNavigate } from "react-router-dom";
 
 function HomePage() {
-  const navigate = useNavigate();
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
       <div className="container mx-auto px-4 py-12 md:py-24">
@@ -26,74 +23,39 @@ function HomePage() {
         <div className="mx-auto max-w-3xl">
           <div className="grid gap-6 md:grid-cols-2">
             {/* Card 1 */}
-            <div className="group relative overflow-hidden rounded-xl border bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-teal-600 dark:bg-teal-950 dark:text-teal-400">
-                <Users className="h-6 w-6" />
-              </div>
-              <h2 className="mb-2 text-xl font-bold">Find Users by Tags</h2>
-              <p className="mb-6 text-slate-600 dark:text-slate-400">
-                Search users based on their assigned tags
-              </p>
-              <Button className="w-full" onClick={() => navigate("/get-tags")}>
-                Get Users
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <div className="absolute bottom-0 left-0 h-1 w-0 bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-300 group-hover:w-full"></div>
-            </div>
-
+            <HomeCard
+              cardIcon={<Users className="h-6 w-6" />}
+              title="Find Users by Tags"
+              description="Search users based on their assigned tags"
+              buttonText="Get Users"
+              navigateLink="/get-tags"
+            />
             {/* Card 2 */}
-            <div className="group relative overflow-hidden rounded-xl border bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
-                <Tag className="h-6 w-6" />
-              </div>
-              <h2 className="mb-2 text-xl font-bold">Existing Tags</h2>
-              <p className="mb-6 text-slate-600 dark:text-slate-400">
-                View all users from existing tags
-              </p>
-              <Button className="w-full" onClick={() => navigate("/view-tags")}>
-                View Tags
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <div className="absolute bottom-0 left-0 h-1 w-0 bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300 group-hover:w-full"></div>
-            </div>
+            <HomeCard
+              cardIcon={<Tag className="h-6 w-6" />}
+              title="Existing Tags"
+              description="View all users from existing tags"
+              buttonText="View Tags"
+              navigateLink="/view-tags"
+            />
 
             {/* Card 3 */}
-            <div className="group relative overflow-hidden rounded-xl border bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
-                <Search className="h-6 w-6" />
-              </div>
-              <h2 className="mb-2 text-xl font-bold">View All Users</h2>
-              <p className="mb-6 text-slate-600 dark:text-slate-400">
-                View all users by selecting a tag
-              </p>
-              <Button
-                className="w-full"
-                onClick={() => navigate("/view-all-users")}
-              >
-                View all users
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <div className="absolute bottom-0 left-0 h-1 w-0 bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300 group-hover:w-full"></div>
-            </div>
+            <HomeCard
+              cardIcon={<Search className="h-6 w-6" />}
+              title="View All Users"
+              description="View all users by selecting a tag"
+              buttonText="View All Users"
+              navigateLink="/view-all-users"
+            />
 
             {/* Card 4 */}
-            <div className="group relative overflow-hidden rounded-xl border bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
-                <RefreshCw className="h-6 w-6" />
-              </div>
-              <h2 className="mb-2 text-xl font-bold">Sync and Export</h2>
-              <p className="mb-6 text-slate-600 dark:text-slate-400">
-                Sync to update all user data and Export to Google Sheets
-              </p>
-              <Button
-                className="w-full"
-                onClick={() => navigate("/sync-and-export")}
-              >
-                Sync and Export
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <div className="absolute bottom-0 left-0 h-1 w-0 bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-300 group-hover:w-full"></div>
-            </div>
+            <HomeCard
+              cardIcon={<RefreshCw className="h-6 w-6" />}
+              title="Sync and Export"
+              description="Sync to update all user data and Export to Google Sheets"
+              buttonText="Sync and Export"
+              navigateLink="/sync-and-export"
+            />
           </div>
 
           {/* Features Section */}
