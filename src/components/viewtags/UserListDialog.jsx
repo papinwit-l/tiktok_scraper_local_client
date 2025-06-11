@@ -344,7 +344,7 @@ function UserListDialog(props) {
               <Button
                 onClick={getAllUsersInfo}
                 disabled={loading}
-                className="bg-teal-500 text-white hover:bg-teal-600"
+                // className="bg-teal-500 text-white hover:bg-teal-600"
               >
                 <RefreshCcw
                   className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -487,10 +487,9 @@ function UserListDialog(props) {
                             </div>
                             <Button
                               size="icon"
-                              variant="ghost"
                               onClick={() => getUserInfo(user.username)}
                               disabled={loading}
-                              className="h-8 w-8 rounded-full bg-teal-500 text-white hover:bg-teal-600 hover:text-white"
+                              className="h-8 w-8 rounded-full"
                             >
                               <RefreshCcw
                                 className={`h-4 w-4 ${
