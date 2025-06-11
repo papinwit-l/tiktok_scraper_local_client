@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import SearchCheckbox from "@/components/SearchCheckbox";
+import UserDisplay from "@/components/viewAllUser/UserDisplay";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -65,10 +66,6 @@ function ViewAllUser() {
   const navigate = useNavigate();
 
   // New states for enhanced features
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [viewMode, setViewMode] = useState("list"); // "list" or "card"
-  const [sortField, setSortField] = useState("username");
-  const [sortDirection, setSortDirection] = useState("asc");
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleGetAllTags = async () => {
@@ -84,16 +81,6 @@ function ViewAllUser() {
     }
   };
 
-  const toggleTag = (tag) => {
-    setSelectedTags((current) => {
-      if (current.includes(tag)) {
-        return current.filter((t) => t !== tag);
-      } else {
-        return [...current, tag];
-      }
-    });
-  };
-
   const removeTag = (tag) => {
     // console.log("Removing tag:", tag);
     setSelectedTags((current) => current.filter((t) => t !== tag));
@@ -101,6 +88,18 @@ function ViewAllUser() {
 
   const clearAllTags = () => {
     setSelectedTags([]);
+  };
+
+  const formatUsername = (username) => {
+    // console.log(username);
+    // console.log(username.length);
+    if (username.length > 15) {
+      // console.log(username);
+
+      // console.log("display_username: " + username.substring(0, 15) + "...");
+      return username.substring(0, 15) + "...";
+    }
+    return username;
   };
 
   const handleSubmit = async () => {
@@ -114,7 +113,12 @@ function ViewAllUser() {
           tags: selectedTags,
         }
       );
-      setUsers(response.data);
+      setUsers(
+        response.data.map((item) => ({
+          ...item,
+          display_username: formatUsername(item.username),
+        }))
+      );
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
@@ -151,82 +155,6 @@ function ViewAllUser() {
     }
   };
 
-  const convertToNumber = (value) => {
-    let result = 0;
-    if (value) {
-      const num = parseFloat(value.replace(/[KMB]/g, ""));
-      if (value.includes("K")) {
-        result = num * 1000;
-      } else if (value.includes("M")) {
-        result = num * 1000000;
-      } else if (value.includes("B")) {
-        result = num * 1000000000;
-      } else {
-        result = num;
-      }
-    }
-    return result;
-  };
-
-  // Sort users based on current sort field and direction
-  const sortUsers = (usersToSort) => {
-    return [...usersToSort].sort((a, b) => {
-      let valueA, valueB;
-
-      // Handle different sort fields
-      if (sortField === "username") {
-        valueA = a.username?.toLowerCase() || "";
-        valueB = b.username?.toLowerCase() || "";
-      } else if (sortField === "followers") {
-        // valueA = Number.parseInt(a.followers || 0);
-        valueA = convertToNumber(a.followers) || 0;
-        // valueB = Number.parseInt(b.followers || 0);
-        valueB = convertToNumber(b.followers) || 0;
-      } else if (sortField === "likes") {
-        // valueA = Number.parseInt(a.likes || 0);
-        valueA = convertToNumber(a.likes) || 0;
-        // valueB = Number.parseInt(b.likes || 0);
-        valueB = convertToNumber(b.likes) || 0;
-      }
-
-      // Sort based on direction
-      if (sortDirection === "asc") {
-        return valueA > valueB ? 1 : -1;
-      } else {
-        return valueA < valueB ? 1 : -1;
-      }
-    });
-  };
-
-  // Filter users based on search query
-  const filterUsers = (usersToFilter) => {
-    if (!searchQuery.trim()) return usersToFilter;
-
-    const query = searchQuery.toLowerCase();
-    return usersToFilter.filter(
-      (user) =>
-        user.username?.toLowerCase().includes(query) ||
-        user.tiktok_src?.toLowerCase().includes(query)
-    );
-  };
-
-  // Get processed users (sorted and filtered)
-  const getProcessedUsers = () => {
-    return filterUsers(sortUsers(users));
-  };
-
-  // Toggle sort direction or change sort field
-  const handleSort = (field) => {
-    if (sortField === field) {
-      // Toggle direction if same field
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      // Set new field and default to ascending
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
   useEffect(() => {
     handleGetAllTags();
   }, []);
@@ -240,129 +168,8 @@ function ViewAllUser() {
     if (selectedTags.length > 2) return `Users for ${selectedTags.length} tags`;
   };
 
-  // Render user in list view
-  const renderUserListItem = (user, index) => (
-    <div
-      key={user.id || index}
-      className="py-4 px-6 border-b last:border-b-0 hover:bg-muted/30 transition-colors"
-    >
-      <div className="flex items-center gap-4">
-        <div className="text-muted-foreground font-medium w-8 text-center">
-          {index + 1}
-        </div>
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-4">
-          <div className="flex items-center gap-3">
-            <img
-              src={user.avatar || "/placeholder.svg?height=40&width=40"}
-              alt={user.username}
-              className="w-12 h-12 rounded-full border object-cover"
-            />
-            <div className="flex flex-col">
-              <p className="font-medium">{user.username}</p>
-              <a
-                href={user.tiktok_src}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-muted-foreground hover:text-primary hover:underline flex items-center gap-1 md:hidden"
-              >
-                Visit Profile
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-            <a
-              href={user.tiktok_src}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-muted-foreground hover:text-primary hover:underline flex items-center gap-1 hidden md:flex"
-            >
-              {user.tiktok_src}
-              <ExternalLink className="h-3 w-3" />
-            </a>
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-center">
-                <p className="font-medium">{user.followers}</p>
-                <p className="text-xs text-muted-foreground">followers</p>
-              </div>
-              <div className="flex flex-col items-center">
-                <p className="font-medium">{user.likes}</p>
-                <p className="text-xs text-muted-foreground">likes</p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => getUserInfo(user.username)}
-                className="h-8 px-2"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Render user in card view
-  const renderUserCard = (user, index) => (
-    <Card
-      key={user.id || index}
-      className="overflow-hidden hover:shadow-md transition-shadow"
-    >
-      <CardContent className="flex flex-col p-0">
-        <div className="p-2 px-8 bg-gray-100">#{index}</div>
-        <div className="p-4">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <img
-                src={user.avatar || "/placeholder.svg?height=60&width=60"}
-                alt={user.username}
-                className="w-14 h-14 rounded-full border object-cover"
-              />
-              <div className="flex-1">
-                <p className="font-medium text-lg">{user.username}</p>
-                <a
-                  href={user.tiktok_src}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-muted-foreground hover:text-primary hover:underline flex items-center gap-1"
-                >
-                  Visit Profile
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => getUserInfo(user.username)}
-                className="h-8 px-2 self-start"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <div className="bg-muted/30 rounded-md p-3 text-center">
-                <p className="font-medium">{user.followers}</p>
-                <p className="text-xs text-muted-foreground">followers</p>
-              </div>
-              <div className="bg-muted/30 rounded-md p-3 text-center">
-                <p className="font-medium">{user.likes}</p>
-                <p className="text-xs text-muted-foreground">likes</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  const processedUsers = getProcessedUsers();
-
   return (
-    <div className="container mx-auto py-6 px-4 flex flex-col h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] overflow-hidden">
+    <div className="container mx-auto mt-4 h-full px-4 flex flex-col">
       <div className="flex flex-col gap-6">
         <div className="flex gap-4">
           <div>
@@ -380,7 +187,7 @@ function ViewAllUser() {
           </div>
         </div>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm py-4">
           <CardContent className="px-4 py-0 space-y-4">
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">
@@ -402,13 +209,13 @@ function ViewAllUser() {
                   <Button
                     onClick={handleSubmit}
                     disabled={loading || selectedTags.length === 0}
-                    className="w-full sm:w-auto"
+                    className="w-full sm:w-auto bg-teal-500 hover:bg-teal-600"
                   >
                     {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <>
-                        <Search className="h-4 w-4 mr-2" />
+                        <Search className="h-4 w-4" />
                         Search Users
                       </>
                     )}
@@ -424,10 +231,7 @@ function ViewAllUser() {
                       >
                         {tag}
                         <div onClick={() => removeTag(tag)}>
-                          <X
-                            className="h-3 w-3 cursor-pointer ml-1"
-                            // onClick={() => removeTag(tag)}
-                          />
+                          <X className="h-3 w-3 cursor-pointer ml-1" />
                         </div>
                       </Badge>
                     ))}
@@ -436,7 +240,7 @@ function ViewAllUser() {
                         variant="ghost"
                         size="sm"
                         onClick={clearAllTags}
-                        className="h-7 text-xs"
+                        className="h-7 pl-1 text-xs text-teal-600 underline hover:bg-transparent hover:text-teal-500/80"
                       >
                         Clear all
                       </Button>
@@ -450,39 +254,44 @@ function ViewAllUser() {
       </div>
 
       {users.length > 0 && (
-        <Card className="mt-6 flex-1 overflow-hidden shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between py-4 px-6 bg-muted/30">
-            <CardTitle className="text-lg font-medium">Users Results</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
-                Total: {users.length} users
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDialogOpen(true)}
-                className="h-8 w-8 p-0"
-              >
-                <Maximize2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-y-auto h-[calc(100vh-320px)]">
-              {processedUsers.length > 0 ? (
-                processedUsers.map((user, index) =>
-                  renderUserListItem(user, index)
-                )
-              ) : (
-                <div className="flex items-center justify-center h-32">
-                  <p className="text-muted-foreground">
-                    No users match your search criteria
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <UserDisplay
+          users={users}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+        />
+        // <Card className="mt-6 flex-1 overflow-hidden shadow-sm">
+        //   <CardHeader className="flex flex-row items-center justify-between py-4 px-6 bg-muted/30">
+        //     <CardTitle className="text-lg font-medium">Users Results</CardTitle>
+        //     <div className="flex items-center gap-2">
+        //       <div className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
+        //         Total: {users.length} users
+        //       </div>
+        //       <Button
+        //         variant="outline"
+        //         size="sm"
+        //         onClick={() => setDialogOpen(true)}
+        //         className="h-8 w-8 p-0"
+        //       >
+        //         <Maximize2 className="h-4 w-4" />
+        //       </Button>
+        //     </div>
+        //   </CardHeader>
+        //   <CardContent className="p-0">
+        //     <div className="overflow-y-auto h-[calc(100vh-320px)]">
+        //       {processedUsers.length > 0 ? (
+        //         processedUsers.map((user, index) =>
+        //           renderUserListItem(user, index)
+        //         )
+        //       ) : (
+        //         <div className="flex items-center justify-center h-32">
+        //           <p className="text-muted-foreground">
+        //             No users match your search criteria
+        //           </p>
+        //         </div>
+        //       )}
+        //     </div>
+        //   </CardContent>
+        // </Card>
       )}
 
       {loading && (
@@ -495,8 +304,8 @@ function ViewAllUser() {
       )}
 
       {!loading && users.length === 0 && selectedTags.length > 0 && (
-        <Card className="mt-6 flex-1">
-          <CardContent className="flex flex-col items-center justify-center py-16">
+        <div className="mt-6 flex-1">
+          <div className="flex flex-col items-center justify-center py-16">
             <div className="text-muted-foreground text-center mb-4">
               <p className="text-lg">No users found</p>
               <p>No users found matching the selected tags.</p>
@@ -504,12 +313,12 @@ function ViewAllUser() {
             <Button variant="outline" onClick={handleSubmit} className="mt-4">
               Try Again
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Dialog for expanded user list view */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-[90vw] min-w-[90vw] w-[90vw] p-0 pt-4">
           <DialogHeader className="p-6 border-b">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -594,8 +403,8 @@ function ViewAllUser() {
               </div>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </DialogContent> 
+      </Dialog>*/}
     </div>
   );
 }
