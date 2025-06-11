@@ -50,6 +50,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
+import SearchCheckbox from "@/components/SearchCheckbox";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -57,9 +58,10 @@ function ViewAllUser() {
   const [users, setUsers] = useState([]);
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
-  const [open, setOpen] = useState(false);
+  const [filteredTags, setFilteredTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [tagsLoading, setTagsLoading] = useState(true);
+  const [searchTagInput, setSearchTagInput] = useState("");
   const navigate = useNavigate();
 
   // New states for enhanced features
@@ -74,6 +76,7 @@ function ViewAllUser() {
     try {
       const response = await axios.get(`${BASE_URL}/tiktok/get-tags-list`);
       setTags(response.data.map((item) => item.name));
+      setFilteredTags(response.data.map((item) => item.name));
     } catch (error) {
       console.error("Error fetching tags:", error);
     } finally {
@@ -92,6 +95,7 @@ function ViewAllUser() {
   };
 
   const removeTag = (tag) => {
+    // console.log("Removing tag:", tag);
     setSelectedTags((current) => current.filter((t) => t !== tag));
   };
 
@@ -384,61 +388,32 @@ function ViewAllUser() {
               </label>
 
               <div className="flex flex-col gap-2">
-                <Popover open={open} onOpenChange={setOpen}>
-                  <PopoverTrigger asChild>
-                    <Input type={"text"} placeholder="Search tags" />
-                    {/* <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={open}
-                      className="w-full justify-between h-auto min-h-10"
-                      type="button"
-                      disabled={tagsLoading}
-                    >
-                      {tagsLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <span className="truncate">
-                          {selectedTags.length > 0
-                            ? `${selectedTags.length} tag${
-                                selectedTags.length > 1 ? "s" : ""
-                              } selected`
-                            : "Select tags..."}
-                        </span>
-                      )}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button> */}
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search tags..." />
-                      <CommandEmpty>No tags found.</CommandEmpty>
-                      <CommandList className="max-h-[300px]">
-                        <CommandGroup>
-                          {tags.map((tag) => (
-                            <CommandItem
-                              key={tag}
-                              onSelect={() => toggleTag(tag)}
-                              className="flex items-center gap-2"
-                            >
-                              <Checkbox
-                                checked={selectedTags.includes(tag)}
-                                onCheckedChange={() => toggleTag(tag)}
-                                id={`tag-${tag}`}
-                                className="mr-2"
-                              />
-                              <span>{tag}</span>
-                              {selectedTags.includes(tag) && (
-                                <Check className="ml-auto h-4 w-4" />
-                              )}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-
+                <div className="flex items-center gap-2">
+                  <SearchCheckbox
+                    items={tags}
+                    selectedItem={selectedTags}
+                    setSelectedItem={setSelectedTags}
+                    inputValue={searchTagInput}
+                    setInputValue={setSearchTagInput}
+                    filteredItems={filteredTags}
+                    setFilteredItems={setFilteredTags}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={loading || selectedTags.length === 0}
+                    className="w-full sm:w-auto"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <>
+                        <Search className="h-4 w-4 mr-2" />
+                        Search Users
+                      </>
+                    )}
+                  </Button>
+                </div>
                 {selectedTags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {selectedTags.map((tag) => (
@@ -448,10 +423,12 @@ function ViewAllUser() {
                         className="flex items-center gap-1 px-3 py-1"
                       >
                         {tag}
-                        <X
-                          className="h-3 w-3 cursor-pointer ml-1"
-                          onClick={() => removeTag(tag)}
-                        />
+                        <div onClick={() => removeTag(tag)}>
+                          <X
+                            className="h-3 w-3 cursor-pointer ml-1"
+                            // onClick={() => removeTag(tag)}
+                          />
+                        </div>
                       </Badge>
                     ))}
                     {selectedTags.length > 1 && (
@@ -467,20 +444,6 @@ function ViewAllUser() {
                   </div>
                 )}
               </div>
-              <Button
-                onClick={handleSubmit}
-                disabled={loading || selectedTags.length === 0}
-                className="mt-2 w-full sm:w-auto"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <>
-                    <Search className="h-4 w-4 mr-2" />
-                    Search Users
-                  </>
-                )}
-              </Button>
             </div>
           </CardContent>
         </Card>

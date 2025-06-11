@@ -28,8 +28,8 @@ const router = createBrowserRouter([
       },
       {
         path: "/view-all-users",
-        // element: <ViewAllUser />,
-        element: <TestComponent />,
+        element: <ViewAllUser />,
+        // element: <TestComponent />,
       },
       {
         path: "/sync-and-export",
