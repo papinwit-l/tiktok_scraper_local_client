@@ -27,6 +27,7 @@ import {
   Activity,
   Pause,
   Play,
+  Share,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -53,20 +54,14 @@ function SyncAndExport() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => navigate("/")}
-          >
+          <Button variant="outline" size="icon" onClick={() => navigate("/")}>
             <ArrowLeft className="h-4 w-4" />
-            Back
           </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Sync & Export</h1>
-            <p className="text-muted-foreground">
+            {/* <p className="text-muted-foreground">
               Manage your TikTok user data synchronization and exports
-            </p>
+            </p> */}
           </div>
         </div>
 
@@ -78,7 +73,7 @@ function SyncAndExport() {
               Sync Data
             </TabsTrigger>
             <TabsTrigger value="export" className="gap-2 text-base">
-              <Download className="h-4 w-4" />
+              <Share className="h-4 w-4" />
               Export Data
             </TabsTrigger>
           </TabsList>
@@ -557,7 +552,7 @@ function SyncData({
 
       {/* Main Sync Card */}
       <Card className="shadow-lg">
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-0">
           <CardTitle className="flex items-center gap-2">
             <RefreshCw className="h-5 w-5" />
             Data Synchronization
@@ -572,8 +567,8 @@ function SyncData({
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
               <strong>Important:</strong> Syncing will take considerable time
-              and the website will be unavailable during this process. Each user
-              takes approximately 3-5 seconds depending on your internet speed.
+              and the website will be unavailable during this process. Syncing
+              average time depend on your internet speed.
             </AlertDescription>
           </Alert>
 
@@ -661,7 +656,7 @@ function SyncData({
               onClick={handleSync}
               disabled={isSyncing}
               size="lg"
-              className="flex-1 gap-2"
+              className="flex-1 gap-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:from-teal-600 hover:to-emerald-600"
             >
               <RefreshCw
                 className={`h-4 w-4 ${
@@ -719,6 +714,7 @@ function ExportData() {
       console.error("Error fetching user data:", error);
     } finally {
       setIsExporting(false);
+      handleOpenGoogleSheet();
     }
   };
 
@@ -726,18 +722,19 @@ function ExportData() {
     <div className="space-y-6">
       {/* Export Card */}
       <Card className="shadow-lg">
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-0">
           <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
-            Data Export
+            <Share className="h-5 w-5" />
+            Google Sheets Integration
           </CardTitle>
           <CardDescription>
-            Export your KOL data to Google Sheets for analysis and reporting
+            Your data will be exported to the connected Google Sheets document
+            for easy access and collaboration.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Google Sheets Integration */}
-          <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+          {/* <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
             <div className="flex items-start gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <ExternalLink className="h-5 w-5 text-blue-600" />
@@ -761,7 +758,7 @@ function ExportData() {
                 </Button>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Export Status */}
           {exportComplete && (
@@ -780,9 +777,9 @@ function ExportData() {
               onClick={handleExport}
               disabled={isExporting}
               size="lg"
-              className="w-full gap-2"
+              className="w-full gap-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:from-teal-600 hover:to-emerald-600"
             >
-              <Download
+              <Share
                 className={`h-4 w-4 ${isExporting ? "animate-pulse" : ""}`}
               />
               {isExporting ? "Exporting Data..." : "Export to Google Sheets"}
@@ -790,8 +787,8 @@ function ExportData() {
 
             <div className="text-center">
               <p className="text-sm text-muted-foreground">
-                Export includes user profiles, follower counts, engagement
-                metrics, and tag associations.
+                Export includes user profiles, follower counts, and tag
+                associations.
               </p>
             </div>
           </div>
@@ -799,7 +796,7 @@ function ExportData() {
       </Card>
 
       {/* Export Features */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -831,7 +828,7 @@ function ExportData() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </div> */}
     </div>
   );
 }
